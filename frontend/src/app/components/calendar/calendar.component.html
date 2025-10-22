@@ -6,7 +6,10 @@
       <span class="current-month">{{ getCurrentMonthYear() }}</span>
       <button (click)="nextMonth()" class="btn-nav">&gt;</button>
     </div>
-    <button (click)="openEventForm()" class="btn-primary">Nouvel événement</button>
+    <div class="header-actions">
+      <button (click)="openEventForm()" class="btn-primary">Nouvel événement</button>
+      <button (click)="logout()" class="btn-secondary">Déconnexion</button>
+    </div>
   </header>
 
   <div class="calendar-grid">

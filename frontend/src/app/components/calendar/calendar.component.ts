@@ -1,6 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Router } from '@angular/router';
 import { EventService } from '../../services/event.service';
+import { AuthService } from '../../services/auth.service';
 import { Event } from '../../models/event.model';
 import { EventFormComponent } from '../event/event-form.component';
 import { DayEventsComponent } from '../day-events/day-events.component';
@@ -26,7 +28,11 @@ export class CalendarComponent implements OnInit {
   selectedDate: Date | null = null;
   selectedDayEvents: Event[] = [];
 
-  constructor(private eventService: EventService) {}
+  constructor(
+    private eventService: EventService,
+    private authService: AuthService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.generateCalendar();
@@ -256,6 +262,18 @@ export class CalendarComponent implements OnInit {
   onEventDelete(eventId: number): void {
     this.closeEventForm();
     this.loadEvents();
+  }
+
+  logout(): void {
+    this.authService.logout().subscribe({
+      next: () => {
+        this.router.navigate(['/auth/login']);
+      },
+      error: () => {
+        // Même en cas d'erreur, on déconnecte localement
+        this.router.navigate(['/auth/login']);
+      }
+    });
   }
 }
 
