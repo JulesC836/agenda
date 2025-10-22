@@ -55,8 +55,8 @@ src/app/
 app/
 ├── Http/
 │   ├── Controllers/
-│   │   ├── AuthController.php          # Authentification JWT
-│   │   └── EventController.php         # CRUD événements
+│   │   ├── AuthController.php          # Authentification JWT + UserRepository
+│   │   └── EventController.php         # CRUD événements + EventRepository
 │   ├── Requests/
 │   │   ├── EventRequest.php            # Validation événements
 │   │   ├── LoginRequest.php            # Validation connexion
@@ -65,13 +65,20 @@ app/
 │   │   └── EventResource.php           # Formatage JSON
 │   └── Middleware/
 │       └── auth:api                    # Vérification JWT
+├── Repositories/
+│   ├── Contracts/
+│   │   ├── EventRepositoryInterface.php # Interface Event Repository
+│   │   └── UserRepositoryInterface.php  # Interface User Repository
+│   └── Eloquent/
+│       ├── EventRepository.php         # Implémentation Event Repository
+│       └── UserRepository.php          # Implémentation User Repository
 ├── Models/
 │   ├── User.php                        # Modèle utilisateur
 │   └── Event.php                       # Modèle événement
 ├── Policies/
 │   └── EventPolicy.php                 # Autorisation événements
 └── Providers/
-    └── AppServiceProvider.php          # Configuration policies
+    └── AppServiceProvider.php          # Configuration policies + repositories
 ```
 
 ## Base de Données
@@ -113,55 +120,70 @@ Frontend                    Backend                     Database
 ### 2. Chargement du Calendrier
 
 ```
-Frontend                    Backend                     Database
-   │                          │                           │
-   │ GET /api/events          │                           │
-   │ ?start_date=2025-10-01   │                           │
-   │ &end_date=2025-10-31     │                           │
-   ├─────────────────────────►│ EventController::index    │
-   │                          ├──────────────────────────►│ SELECT events
-   │                          │◄──────────────────────────┤ WHERE user_id
-   │◄─────────────────────────┤ EventResource::collection │ AND dates
-   │ Display in calendar      │                           │
+Frontend                    Backend                     Repository              Database
+   │                          │                           │                       │
+   │ GET /api/events          │                           │                       │
+   │ ?start_date=2025-10-01   │                           │                       │
+   │ &end_date=2025-10-31     │                           │                       │
+   ├─────────────────────────►│ EventController::index    │                       │
+   │                          ├──────────────────────────►│ EventRepository::     │
+   │                          │                           │ findByUserAndDateRange│
+   │                          │                           ├──────────────────────►│ SELECT events
+   │                          │                           │◄──────────────────────┤ WHERE user_id
+   │                          │◄──────────────────────────┤                       │ AND dates
+   │◄─────────────────────────┤ EventResource::collection │                       │
+   │ Display in calendar      │                           │                       │
 ```
 
 ### 3. Sélection d'un Jour
 
 ```
-Frontend                    Backend                     Database
-   │                          │                           │
-   │ GET /api/events/day/     │                           │
-   │ 2025-10-22               │                           │
-   ├─────────────────────────►│ EventController::        │
-   │                          │ getEventsByDay            │
-   │                          ├──────────────────────────►│ SELECT events
-   │                          │◄──────────────────────────┤ WHERE date
-   │◄─────────────────────────┤ EventResource::collection │
-   │ Show day-events modal    │                           │
+Frontend                    Backend                     Repository              Database
+   │                          │                           │                       │
+   │ GET /api/events/day/     │                           │                       │
+   │ 2025-10-22               │                           │                       │
+   ├─────────────────────────►│ EventController::        │                       │
+   │                          │ getEventsByDay            │                       │
+   │                          ├──────────────────────────►│ EventRepository::     │
+   │                          │                           │ findByUserAndDay      │
+   │                          │                           ├──────────────────────►│ SELECT events
+   │                          │                           │◄──────────────────────┤ WHERE date
+   │                          │◄──────────────────────────┤                       │
+   │◄─────────────────────────┤ EventResource::collection │                       │
+   │ Show day-events modal    │                           │                       │
 ```
 
 ### 4. CRUD Événements
 
 ```
-Frontend                    Backend                     Database
-   │                          │                           │
-   │ POST /api/events         │                           │
-   ├─────────────────────────►│ EventController::store    │
-   │                          ├──────────────────────────►│ INSERT event
-   │                          │◄──────────────────────────┤
-   │◄─────────────────────────┤ EventResource             │
-   │                          │                           │
-   │ PUT /api/events/{id}     │                           │
-   ├─────────────────────────►│ EventController::update   │
-   │                          ├──────────────────────────►│ UPDATE event
-   │                          │◄──────────────────────────┤
-   │◄─────────────────────────┤ EventResource             │
-   │                          │                           │
-   │ DELETE /api/events/{id}  │                           │
-   ├─────────────────────────►│ EventController::destroy  │
-   │                          ├──────────────────────────►│ DELETE event
-   │                          │◄──────────────────────────┤
-   │◄─────────────────────────┤ Success message           │
+Frontend                    Backend                     Repository              Database
+   │                          │                           │                       │
+   │ POST /api/events         │                           │                       │
+   ├─────────────────────────►│ EventController::store    │                       │
+   │                          ├──────────────────────────►│ EventRepository::     │
+   │                          │                           │ create                │
+   │                          │                           ├──────────────────────►│ INSERT event
+   │                          │                           │◄──────────────────────┤
+   │                          │◄──────────────────────────┤                       │
+   │◄─────────────────────────┤ EventResource             │                       │
+   │                          │                           │                       │
+   │ PUT /api/events/{id}     │                           │                       │
+   ├─────────────────────────►│ EventController::update   │                       │
+   │                          ├──────────────────────────►│ EventRepository::     │
+   │                          │                           │ update                │
+   │                          │                           ├──────────────────────►│ UPDATE event
+   │                          │                           │◄──────────────────────┤
+   │                          │◄──────────────────────────┤                       │
+   │◄─────────────────────────┤ EventResource             │                       │
+   │                          │                           │                       │
+   │ DELETE /api/events/{id}  │                           │                       │
+   ├─────────────────────────►│ EventController::destroy  │                       │
+   │                          ├──────────────────────────►│ EventRepository::     │
+   │                          │                           │ delete                │
+   │                          │                           ├──────────────────────►│ DELETE event
+   │                          │                           │◄──────────────────────┤
+   │                          │◄──────────────────────────┤                       │
+   │◄─────────────────────────┤ Success message           │                       │
 ```
 
 ## Sécurité
@@ -193,8 +215,10 @@ Backend: EventPolicy → Vérifie propriété des événements
 ### Backend
 - **Laravel 11** : Framework PHP
 - **JWT Auth** : Authentification
+- **Repository Pattern** : Séparation logique métier
 - **Eloquent ORM** : Base de données
 - **API Resources** : Formatage JSON
+- **Dependency Injection** : Inversion de contrôle
 
 ### Base de Données
 - **MySQL/SQLite** : Stockage

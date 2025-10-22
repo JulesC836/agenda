@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\EventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
+use App\Repositories\Contracts\EventRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -13,16 +14,24 @@ use Illuminate\Http\Request;
 class EventController
 {
     use AuthorizesRequests;
+
+    public function __construct(
+        private EventRepositoryInterface $eventRepository
+    ) {}
     public function index(Request $request)
     {
         try {
-            $query = Event::forUser(auth()->id())->orderBy('start_date');
-
             if ($request->has(['start_date', 'end_date'])) {
-                $query->betweenDates($request->start_date, $request->end_date);
+                $events = $this->eventRepository->findByUserAndDateRange(
+                    auth()->id(),
+                    $request->start_date,
+                    $request->end_date
+                );
+            } else {
+                $events = $this->eventRepository->findByUser(auth()->id());
             }
 
-            return EventResource::collection($query->get());
+            return EventResource::collection($events);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to retrieve events'], 500);
         }
@@ -31,7 +40,7 @@ class EventController
     public function store(EventRequest $request): JsonResource|JsonResponse
     {
         try {
-            $event = Event::create([
+            $event = $this->eventRepository->create([
                 ...$request->validated(),
                 'user_id' => auth()->id(),
             ]);
@@ -58,8 +67,8 @@ class EventController
     {
         try {
             $this->authorize('update', $event);
-            $event->update($request->validated());
-            return new EventResource($event);
+            $updatedEvent = $this->eventRepository->update($event, $request->validated());
+            return new EventResource($updatedEvent);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return response()->json(['error' => 'Unauthorized'], 403);
         } catch (\Exception $e) {
@@ -71,7 +80,7 @@ class EventController
     {
         try {
             $this->authorize('delete', $event);
-            $event->delete();
+            $this->eventRepository->delete($event);
             return response()->json(['message' => 'Event deleted successfully']);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             return response()->json(['error' => 'Unauthorized'], 403);
@@ -83,21 +92,7 @@ class EventController
     public function getEventsByDay(string $date)
     {
         try {
-            $startOfDay = $date . ' 00:00:00';
-            $endOfDay = $date . ' 23:59:59';
-            
-            $events = Event::forUser(auth()->id())
-                ->where(function ($query) use ($startOfDay, $endOfDay) {
-                    $query->whereBetween('start_date', [$startOfDay, $endOfDay])
-                          ->orWhereBetween('end_date', [$startOfDay, $endOfDay])
-                          ->orWhere(function ($q) use ($startOfDay, $endOfDay) {
-                              $q->where('start_date', '<=', $startOfDay)
-                                ->where('end_date', '>=', $endOfDay);
-                          });
-                })
-                ->orderBy('start_date')
-                ->get();
-                
+            $events = $this->eventRepository->findByUserAndDay(auth()->id(), $date);
             return EventResource::collection($events);
         } catch (\Exception $e) {
             return response()->json(['error' => 'Failed to retrieve events for day'], 500);
