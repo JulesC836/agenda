@@ -181,4 +181,4 @@ ng lint
 
 ## Architecture
 
-Voir le fichier [architecture.md](architecture.md) pour une vue détaillée de l'architecture du projet.
+Voir le fichier [Architecture.md](Architecture.md) pour une vue détaillée de l'architecture du projet.
