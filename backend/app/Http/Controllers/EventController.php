@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Http\Requests\EventRequest;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\Request;
 
 class EventController
 {
+    use AuthorizesRequests;
     public function index(Request $request)
     {
         try {
