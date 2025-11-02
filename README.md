@@ -2,11 +2,17 @@
 
 ## Prérequis
 
+### Développement Local
 - **PHP** >= 8.2
 - **Composer** >= 2.0
 - **Node.js** >= 18.0
 - **npm** >= 9.0
 - **MySQL** >= 8.0 ou **SQLite**
+
+### Docker/Kubernetes
+- **Docker** >= 20.0
+- **Docker Compose** >= 2.0
+- **Kubernetes** >= 1.20 (optionnel)
 
 ## Installation Backend (Laravel)
 
@@ -72,6 +78,29 @@ ng serve
 ```
 Le frontend sera accessible sur `http://localhost:4200`
 
+## Installation Docker (Recommandée)
+
+### Développement rapide
+```bash
+# Démarrer tous les services
+docker-compose up --build
+
+# Accès:
+# Frontend: http://localhost:4200
+# Backend: http://localhost:8000
+# MySQL: localhost:3306
+```
+
+### Production Kubernetes
+```bash
+# Déploiement automatique
+./k8s/deploy.sh
+
+# Accès via Ingress
+echo "127.0.0.1 agenda.local" >> /etc/hosts
+# http://agenda.local
+```
+
 ## Structure du Projet
 
 ```
@@ -79,11 +108,22 @@ angenda/
 ├── backend/           # API Laravel
 │   ├── app/
 │   ├── database/
-│   └── routes/
+│   ├── routes/
+│   └── Dockerfile
 ├── frontend/          # Application Angular
 │   ├── src/
-│   └── angular.json
-└── README.md
+│   ├── angular.json
+│   ├── Dockerfile
+│   └── nginx.conf
+├── k8s/              # Manifests Kubernetes
+│   ├── namespace.yaml
+│   ├── mysql.yaml
+│   ├── backend.yaml
+│   ├── frontend.yaml
+│   └── deploy.sh
+├── docker-compose.yml
+├── README.md
+└── Architecture.md
 ```
 
 ## Fonctionnalités
@@ -93,7 +133,9 @@ angenda/
 - ✅ **Événements** : CRUD complet (Créer, Lire, Modifier, Supprimer)
 - ✅ **Vue par jour** : Liste détaillée des événements
 - ✅ **Couleurs** : Personnalisation visuelle des événements
+- ✅ **Rappels email** : Notifications automatiques (15min à 1 jour)
 - ✅ **Responsive** : Interface adaptée mobile/desktop
+- ✅ **Containerisation** : Docker & Kubernetes ready
 
 ## API Endpoints
 
@@ -152,6 +194,28 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+## Rappels Email
+
+### Configuration
+```bash
+# Démarrer les queues
+php artisan queue:work &
+
+# Programmer les rappels (crontab)
+* * * * * cd /path/to/agenda/backend && php artisan schedule:run
+```
+
+### Configuration SMTP (optionnel)
+Dans `.env` :
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=votre-email@gmail.com
+MAIL_PASSWORD=votre-mot-de-passe-app
+MAIL_ENCRYPTION=tls
+```
+
 ## Développement
 
 ### Backend
@@ -179,6 +243,8 @@ ng test
 ng lint
 ```
 
-## Architecture
+## Documentation
 
-Voir le fichier [Architecture.md](Architecture.md) pour une vue détaillée de l'architecture du projet.
+- [Architecture.md](Architecture.md) - Architecture détaillée
+- [RAPPELS_EMAIL.md](RAPPELS_EMAIL.md) - Fonctionnalité rappels
+- [DOCKER_K8S.md](DOCKER_K8S.md) - Containerisation

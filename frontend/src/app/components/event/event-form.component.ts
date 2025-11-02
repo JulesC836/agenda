@@ -34,7 +34,9 @@ export class EventFormComponent implements OnInit {
       end_date: ['', Validators.required],
       location: [''],
       color: ['#3498db'],
-      is_all_day: [false]
+      is_all_day: [false],
+      has_reminder: [false],
+      reminder_minutes: [30]
     });
   }
 
@@ -49,7 +51,9 @@ export class EventFormComponent implements OnInit {
         end_date: this.formatDateForInput(this.event.end_date),
         location: this.event.location,
         color: this.event.color,
-        is_all_day: this.event.is_all_day
+        is_all_day: this.event.is_all_day,
+        has_reminder: this.event.has_reminder || false,
+        reminder_minutes: this.event.reminder_minutes || 30
       });
     } else if (this.selectedDate) {
       const startDate = new Date(this.selectedDate);

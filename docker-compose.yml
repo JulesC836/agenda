@@ -1,0 +1,51 @@
+
+networks:
+  back-db:
+    driver: bridge
+  front-back:
+    driver: bridge
+
+services:
+  mariadb:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: jsaispu
+      MYSQL_DATABASE: agenda
+
+      MYSQL_USERNAME: user
+      MYSQL_PASSWORD: supersecure
+    ports:
+      - "3308:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./db_init:/docker-entrypoint-initdb.d
+    networks:
+      - back-db
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      mariadb:
+        condition: service_started
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mariadb
+      DB_DATABASE: agenda
+      DB_USERNAME: user
+      DB_PASSWORD: supersecure
+    networks:
+      - back-db
+      - front-back
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4200:4200"
+    depends_on:
+      - backend
+    networks:
+      - front-back
+volumes:
+  mariadb_data:

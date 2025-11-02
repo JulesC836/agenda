@@ -1,0 +1,5 @@
+-> Erreurs de versions des packges node pour le frontend
+-> Difficulté de la mise en place de la communication entre les différentes parties de l'application
+-> Accès au frontend: corrigeé en ajutant --host 0.0.0.0 à la config package.json
+-> erreurs de CORS -> composer require fruitcake/laravel-cors
+-> impossibilité à se connecter à la base de données directement avec le compte root, ce qui nous a emmené à créer un utilisateur secondaire

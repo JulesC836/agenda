@@ -2,6 +2,7 @@
 
 ## Vue d'ensemble
 
+### Architecture Locale
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              FRONTEND (Angular)                             │
@@ -20,6 +21,36 @@
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                MySQL/SQLite                                 │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Architecture Kubernetes
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                INGRESS                                      │
+│                          http://agenda.local                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+                    │                              │
+               / (Frontend)                   /api (Backend)
+                    │                              │
+┌─────────────────────────────────┐    ┌─────────────────────────────────┐
+│        Frontend Service         │    │        Backend Service          │
+│         (Port 80)               │    │         (Port 8000)             │
+└─────────────────────────────────┘    └─────────────────────────────────┘
+                    │                              │
+┌─────────────────────────────────┐    ┌─────────────────────────────────┐
+│     Frontend Deployment         │    │     Backend Deployment          │
+│       (2 replicas)              │    │       (2 replicas)              │
+└─────────────────────────────────┘    └─────────────────────────────────┘
+                                                   │
+                                       ┌─────────────────────────────────┐
+                                       │        MySQL Service            │
+                                       │         (Port 3306)             │
+                                       └─────────────────────────────────┘
+                                                   │
+                                       ┌─────────────────────────────────┐
+                                       │      MySQL Deployment           │
+                                       │    + PersistentVolume           │
+                                       └─────────────────────────────────┘
 ```
 
 ## Architecture Frontend (Angular)
@@ -58,13 +89,19 @@ app/
 │   │   ├── AuthController.php          # Authentification JWT + UserRepository
 │   │   └── EventController.php         # CRUD événements + EventRepository
 │   ├── Requests/
-│   │   ├── EventRequest.php            # Validation événements
+│   │   ├── EventRequest.php            # Validation événements + rappels
 │   │   ├── LoginRequest.php            # Validation connexion
 │   │   └── RegisterRequest.php         # Validation inscription
 │   ├── Resources/
 │   │   └── EventResource.php           # Formatage JSON
 │   └── Middleware/
 │       └── auth:api                    # Vérification JWT
+├── Jobs/
+│   └── SendEventReminderJob.php        # Job envoi emails rappels
+├── Console/
+│   ├── Commands/
+│   │   └── SendEventReminders.php      # Command traitement rappels
+│   └── Kernel.php                      # Programmation tâches
 ├── Repositories/
 │   ├── Contracts/
 │   │   ├── EventRepositoryInterface.php # Interface Event Repository
@@ -74,7 +111,7 @@ app/
 │       └── UserRepository.php          # Implémentation User Repository
 ├── Models/
 │   ├── User.php                        # Modèle utilisateur
-│   └── Event.php                       # Modèle événement
+│   └── Event.php                       # Modèle événement + rappels
 ├── Policies/
 │   └── EventPolicy.php                 # Autorisation événements
 └── Providers/
@@ -96,6 +133,9 @@ app/
 │ updated_at      │    │ location                            │
 └─────────────────┘    │ color                               │
                        │ is_all_day                          │
+                       │ has_reminder                        │
+                       │ reminder_minutes                    │
+                       │ reminder_sent                       │
                        │ created_at                          │
                        │ updated_at                          │
                        │ deleted_at (soft delete)            │
@@ -224,3 +264,80 @@ Backend: EventPolicy → Vérifie propriété des événements
 - **MySQL/SQLite** : Stockage
 - **Migrations** : Versioning schéma
 - **Soft Deletes** : Suppression logique
+- **Jobs/Queues** : Traitement asynchrone emails
+
+## Infrastructure (Docker/Kubernetes)
+
+### Architecture Conteneurisée
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              KUBERNETES CLUSTER                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
+│  │  Frontend   │    │   Backend   │    │    MySQL    │                     │
+│  │  (Nginx)    │    │  (Laravel)  │    │ (Database)  │                     │
+│  │  Port: 80   │    │  Port: 8000 │    │ Port: 3306  │                     │
+│  │  2 replicas │    │  2 replicas │    │  1 replica  │                     │
+│  └─────────────┘    └─────────────┘    └─────────────┘                     │
+│         │                   │                   │                           │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                        INGRESS                                     │   │
+│  │  / → Frontend Service                                              │   │
+│  │  /api → Backend Service                                            │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Services Kubernetes
+
+- **Namespace**: `agenda` - Isolation des ressources
+- **MySQL**: PersistentVolumeClaim 1Gi + Service
+- **Backend**: Deployment 2 replicas + ConfigMap + Service
+- **Frontend**: Deployment 2 replicas + Service
+- **Ingress**: Routage intelligent (/ → frontend, /api → backend)
+
+### Docker Images
+
+```
+# Backend
+FROM php:8.2-fpm
++ Composer
++ Extensions MySQL/ZIP
++ Laravel optimisé
+
+# Frontend  
+FROM node:18-alpine (build)
++ Angular build
+FROM nginx:alpine (runtime)
++ Fichiers statiques
++ Configuration Nginx
+```
+
+## Fonctionnalités Avancées
+
+### Rappels Email
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Scheduler     │    │   Queue Job     │    │   SMTP Server   │
+│  (Cron/K8s)     │    │  (Laravel)      │    │   (Gmail/etc)   │
+├─────────────────┤    ├─────────────────┤    ├─────────────────┤
+│ Chaque minute   │───►│ SendEventReminder│───►│ Envoi email     │
+│ Vérifie rappels │    │ Job             │    │ utilisateur     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### Déploiement
+
+```bash
+# Développement local
+docker-compose up --build
+
+# Production Kubernetes
+./k8s/deploy.sh
+
+# Monitoring
+kubectl get pods -n agenda
+kubectl logs -f deployment/backend -n agenda
+```

@@ -58,6 +58,26 @@
       </div>
 
       <div class="form-group">
+        <label>
+          <input type="checkbox" formControlName="has_reminder">
+          Rappel par email
+        </label>
+      </div>
+
+      @if (eventForm.get('has_reminder')?.value) {
+        <div class="form-group">
+          <label for="reminder_minutes">Rappel avant (minutes)</label>
+          <select id="reminder_minutes" formControlName="reminder_minutes">
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 heure</option>
+            <option value="120">2 heures</option>
+            <option value="1440">1 jour</option>
+          </select>
+        </div>
+      }
+
+      <div class="form-group">
         <label for="location">Lieu</label>
         <input 
           id="location"

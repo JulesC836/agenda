@@ -13,13 +13,16 @@ class Event extends Model
 
     protected $fillable = [
         'title', 'description', 'start_date', 'end_date', 
-        'location', 'color', 'is_all_day', 'user_id'
+        'location', 'color', 'is_all_day', 'user_id',
+        'has_reminder', 'reminder_minutes'
     ];
 
     protected $casts = [
         'start_date' => 'datetime',
         'end_date' => 'datetime',
         'is_all_day' => 'boolean',
+        'has_reminder' => 'boolean',
+        'reminder_sent' => 'boolean',
     ];
 
     protected $hidden = ['deleted_at'];

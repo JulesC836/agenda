@@ -7,6 +7,8 @@ export interface Event {
   location?: string;
   color: string;
   is_all_day: boolean;
+  has_reminder?: boolean;
+  reminder_minutes?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -19,6 +21,8 @@ export interface EventRequest {
   location?: string;
   color?: string;
   is_all_day: boolean;
+  has_reminder?: boolean;
+  reminder_minutes?: number;
 }
 
 export interface CalendarView {

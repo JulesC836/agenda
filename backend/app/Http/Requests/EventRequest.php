@@ -21,6 +21,8 @@ class EventRequest extends FormRequest
             'location' => ['nullable', 'string', 'max:255'],
             'color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'is_all_day' => ['boolean'],
+            'has_reminder' => ['boolean'],
+            'reminder_minutes' => ['nullable', 'integer', 'min:1'],
         ];
     }
 }
