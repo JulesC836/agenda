@@ -1,3 +1,47 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        
+    - name: Install pnpm
+      run: npm install -g pnpm
+      
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        pnpm install
+        
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        composer install --no-dev --optimize-autoloader
+        
+    - name: Run backend tests
+      run: |
+        cd backend
+        php artisan test --env=testing
+
   build-docker:
     needs: test
     runs-on: ubuntu-latest
@@ -5,21 +49,59 @@
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
+
     - name: Build Backend Docker image
       run: |
         cd backend
         docker build -t agenda-backend:${{ github.sha }} .
         docker build -t agenda-backend:latest .
-        
+
     - name: Build Frontend Docker image  
       run: |
         cd frontend
         docker build -t agenda-frontend:${{ github.sha }} .
         docker build -t agenda-frontend:latest .
-        
+
     - name: List Docker images
       run: docker images | grep agenda
+
+  deploy-preview:
+    needs: build-docker
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Validate Kubernetes configuration
+      run: |
+        echo "🔍 Validation de la configuration Kubernetes..."
+        
+        # Vérifier que le dossier k8s existe
+        if [ -d "k8s" ]; then
+          echo "✅ Dossier k8s présent"
+          echo "📁 Contenu du dossier k8s :"
+          ls -la k8s/
+        else
+          echo "⚠️ Dossier k8s manquant - en attente des fichiers de Jules"
+          mkdir -p k8s
+          echo "# Fichiers Kubernetes à ajouter par Jules" > k8s/README.md
+        fi
+        
+    - name: Simulate deployment
+      run: |
+        echo "🚀 SIMULATION : Déploiement Kubernetes"
+        echo "📋 Fichiers qui seraient déployés :"
+        find k8s/ -name "*.yaml" -o -name "*.yml" 2>/dev/null | while read file; do
+          echo "   ✅ $file"
+        done || echo "   ℹ️ Aucun fichier K8s trouvé - en attente"
+        
+        echo ""
+        echo "🎯 QUAND JULES AURA FINI :"
+        echo "1. Ses fichiers seront dans k8s/"
+        echo "2. Le pipeline les déploiera AUTOMATIQUEMENT"
+        echo "3. Plus besoin d'intervention manuelle !"
