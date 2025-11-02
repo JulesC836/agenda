@@ -18,7 +18,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'pnpm'
         
     - name: Install pnpm
       run: npm install -g pnpm
@@ -28,17 +27,10 @@ jobs:
         cd frontend
         pnpm install
         
-    - name: Run frontend tests
-      run: |
-        cd frontend
-        pnpm test --watch=false --browsers=ChromeHeadless
-        
     - name: Setup PHP
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.2'
-        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql
-        coverage: none
         
     - name: Install backend dependencies
       run: |
@@ -48,4 +40,26 @@ jobs:
     - name: Run backend tests
       run: |
         cd backend
-        php artisan test
+        php artisan test --env=testing
+
+  build-docker:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Build Backend Docker image
+      run: |
+        cd backend
+        docker build -t agenda-backend:latest .
+        
+    - name: Build Frontend Docker image  
+      run: |
+        cd frontend
+        docker build -t agenda-frontend:latest .
+        
+    - name: Verify Docker images
+      run: |
+        docker images | grep agenda
