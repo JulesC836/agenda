@@ -1,15 +1,16 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mariadb-pvc # Renommé pour plus de clarté
+  name: mariadb-pvc
   namespace: agenda
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1Gi # La taille de stockage est conservée à 4Gi
+      storage: 1Gi 
 ---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -37,7 +38,7 @@ spec:
           value: "agenda"
         - name: MYSQL_USER # CHANGEMENT: Ajout du nom d'utilisateur
           value: "user"
-        - name: MYSQL_PASSWORD # CHANGEMENT: Ajout du mot de passe
+        - name: MYSQL_PASSWORD 
           value: "md_pass"
         ports:
         - containerPort: 3306
