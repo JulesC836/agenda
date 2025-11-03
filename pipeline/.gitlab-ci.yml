@@ -1,0 +1,148 @@
+# Configuration du pipeline CI/CD
+image: docker:20.10.16
+
+services:
+  - docker:20.10.16-dind
+
+variables:
+  DOCKER_HOST: tcp://docker:2376
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_TLS_VERIFY: ""
+  DOCKER_CERT_PATH: ""
+  DOCKER_DRIVER: overlay2
+  
+  # Variables pour les environnements
+  DEV_NAMESPACE: agenda-dev
+  PROD_NAMESPACE: agenda-prod
+  
+  # Noms des images Docker
+  BACKEND_IMAGE: ${CI_REGISTRY_IMAGE}/backend:${CI_COMMIT_SHORT_SHA}
+  FRONTEND_IMAGE: ${CI_REGISTRY_IMAGE}/frontend:${CI_COMMIT_SHORT_SHA}
+
+stages:
+  - test
+  - build
+  - deploy-dev
+  - deploy-prod
+
+# Cache pour les dépendances
+cache:
+  paths:
+    - backend/vendor/
+    - frontend/node_modules/
+
+# Installation des dépendances
+install_dependencies:
+  stage: test
+  image: node:16
+  script:
+    - cd ../frontend && npm ci --cache .npm --prefer-offline
+    - cd ../backend && composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+  only:
+    - develop
+    - main
+  tags:
+    - docker
+
+# Tests unitaires backend
+test_backend:
+  stage: test
+  image: ${BACKEND_IMAGE}
+  services:
+    - mysql:5.7
+  variables:
+    MYSQL_DATABASE: test_db
+    MYSQL_ROOT_PASSWORD: password
+    DB_HOST: mysql
+    DB_DATABASE: test_db
+    DB_USERNAME: root
+    DB_PASSWORD: password
+  script:
+    - php artisan config:clear
+    - php artisan test
+  only:
+    - develop
+    - main
+  tags:
+    - docker
+
+# Construction des images Docker
+build_backend:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $BACKEND_IMAGE ./backend
+    - docker push $BACKEND_IMAGE
+  only:
+    - develop
+    - main
+  tags:
+    - docker
+
+build_frontend:
+  stage: build
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $FRONTEND_IMAGE ./frontend
+    - docker push $FRONTEND_IMAGE
+  only:
+    - develop
+    - main
+  tags:
+    - docker
+
+# Déploiement sur l'environnement de développement
+deploy_dev:
+  stage: deploy-dev
+  image: bitnami/kubectl:latest
+  script:
+    - |
+      # Mise à jour de l'image du backend
+      kubectl set image deployment/backend backend=${BACKEND_IMAGE} -n ${DEV_NAMESPACE}
+      
+      # Mise à jour de l'image du frontend
+      kubectl set image deployment/frontend frontend=${FRONTEND_IMAGE} -n ${DEV_NAMESPACE}
+      
+      # Attente que les déploiements soient terminés
+      kubectl rollout status deployment/backend -n ${DEV_NAMESPACE}
+      kubectl rollout status deployment/frontend -n ${DEV_NAMESPACE}
+  environment:
+    name: development
+    url: https://dev.agenda.example.com
+  only:
+    - develop
+  tags:
+    - k8s
+
+# Déploiement sur l'environnement de production
+deploy_prod:
+  stage: deploy-prod
+  image: bitnami/kubectl:latest
+  script:
+    - |
+      # Mise à jour de l'image du backend
+      kubectl set image deployment/backend backend=${BACKEND_IMAGE} -n ${PROD_NAMESPACE}
+      
+      # Mise à jour de l'image du frontend
+      kubectl set image deployment/frontend frontend=${FRONTEND_IMAGE} -n ${PROD_NAMESPACE}
+      
+      # Attente que les déploiements soient terminés
+      kubectl rollout status deployment/backend -n ${PROD_NAMESPACE}
+      kubectl rollout status deployment/frontend -n ${PROD_NAMESPACE}
+  environment:
+    name: production
+    url: https://agenda.example.com
+  when: manual
+  only:
+    - main
+  tags:
+    - k8s
+
+# Nettoyage des images inutilisées
+cleanup:
+  stage: deploy-prod
+  script:
+    - docker system prune -af
+  when: on_success
+  tags:
+    - docker
