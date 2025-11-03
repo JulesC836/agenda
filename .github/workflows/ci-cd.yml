@@ -36,7 +36,7 @@ jobs:
     - name: Install backend dependencies
       run: |
         cd backend
-        composer install --no-dev --optimize-autoloader
+        composer install --optimize-autoloader
         
     - name: Run backend tests
       run: |
