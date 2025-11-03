@@ -15,9 +15,6 @@ RUN composer install --no-dev --optimize-autoloader
 
 RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
 
-COPY wait-for-db.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/wait-for-db.sh
-
 EXPOSE 8000
 
-CMD ["/usr/local/bin/wait-for-db.sh"]
+CMD php artisan serve --host=0.0.0.0 --port=8000
