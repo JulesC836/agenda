@@ -4,6 +4,7 @@ metadata:
   name: backend-config
   namespace: agenda
 data:
+  DB_CONNECTION: "mysql"
   DB_HOST: "mariadb-service"
   DB_DATABASE: "agenda"
   DB_USERNAME: "user"
@@ -33,6 +34,12 @@ spec:
         envFrom:
         - configMapRef:
             name: backend-config
+        env: # Ajout pour charger l'APP_KEY
+        - name: APP_KEY
+          valueFrom:
+            secretKeyRef:
+              name: backend-app-secret 
+              key: APP_KEY
 ---
 apiVersion: v1
 kind: Service

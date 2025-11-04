@@ -18,7 +18,7 @@ spec:
         image: agenda-frontend:latest
         imagePullPolicy: Never
         ports:
-        - containerPort: 4200
+        - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
@@ -30,7 +30,7 @@ spec:
     app: frontend
   ports:
   - port: 4200
-    targetPort: 4200
+    targetPort: 80
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

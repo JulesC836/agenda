@@ -14,21 +14,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: mariadb # Changé le nom du Deployment
+  name: mariadb
   namespace: agenda
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: mariadb # Changé le label selector
+      app: mariadb
   template:
     metadata:
       labels:
-        app: mariadb # Changé le label du Pod
+        app: mariadb
     spec:
       containers:
-      - name: mariadb # Changé le nom du conteneur
-        image: mariadb:latest # CHANGEMENT: Utilisation de l'image MariaDB
+      - name: mariadb
+        image: mariadb:latest 
         env:
         # Configuration Root (pour la gestion interne de la BDD)
         - name: MYSQL_ROOT_PASSWORD
@@ -36,28 +36,28 @@ spec:
         # Configuration du Super-Utilisateur de l'Application
         - name: MYSQL_DATABASE
           value: "agenda"
-        - name: MYSQL_USER # CHANGEMENT: Ajout du nom d'utilisateur
-          value: "user"
+        - name: MYSQL_USER 
+          value: "user" # Doit correspondre à la ConfigMap du backend
         - name: MYSQL_PASSWORD 
-          value: "md_pass"
+          value: "md_pass" # Doit correspondre à la ConfigMap du backend
         ports:
         - containerPort: 3306
         volumeMounts:
-        - name: mariadb-storage # Renommé pour plus de clarté
+        - name: mariadb-storage
           mountPath: /var/lib/mysql
       volumes:
-      - name: mariadb-storage # Renommé
+      - name: mariadb-storage
         persistentVolumeClaim:
-          claimName: mariadb-pvc # Le nom du PVC mis à jour
+          claimName: mariadb-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mariadb-service # Changé le nom du Service
+  name: mariadb-service
   namespace: agenda
 spec:
   selector:
-    app: mariadb # CHANGEMENT: Le sélecteur cible le nouveau Pod (app: mariadb)
+    app: mariadb
   ports:
   - port: 3306
     targetPort: 3306
