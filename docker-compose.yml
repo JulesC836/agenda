@@ -1,49 +1,63 @@
+version: '3.8'
 
 networks:
-  back-db:
-    driver: bridge
-  front-back:
+  agenda-network:
     driver: bridge
 
 services:
   mariadb:
     image: mariadb:latest
+    container_name: agenda-mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: jsaispu
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: agenda
-
-      MYSQL_USERNAME: user
-      MYSQL_PASSWORD: supersecure
+      MYSQL_USER: user
+      MYSQL_PASSWORD: md_pass
     ports:
-      - "3308:3306"
+      - "3306:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
-      - ./db_init:/docker-entrypoint-initdb.d
     networks:
-      - back-db
+      - agenda-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: agenda-backend
     ports:
       - "8000:8000"
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
     environment:
       DB_HOST: mariadb
       DB_DATABASE: agenda
       DB_USERNAME: user
-      DB_PASSWORD: supersecure
+      DB_PASSWORD: md_pass
+      APP_ENV: local
+      APP_DEBUG: true
     networks:
-      - back-db
-      - front-back
+      - agenda-network
+    volumes:
+      - ./backend/storage:/var/www/storage
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agenda-frontend
     ports:
-      - "4200:4200"
+      - "4200:80"
     depends_on:
       - backend
     networks:
-      - front-back
+      - agenda-network
+
 volumes:
   mariadb_data:
+    driver: local

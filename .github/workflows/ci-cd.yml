@@ -1,107 +1,133 @@
-name: CI/CD Pipeline
+name: Déploiement CI/CD sur Kubernetes
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches:
+      - main # Déclencher uniquement lors du push sur la branche 'main'
+
+env:
+  REGISTRY: ghcr.io
+  # Les noms des images dans le registre (ex: ghcr.io/votre-org/votre-repo/backend)
+  BACKEND_IMAGE_NAME: ${{ github.repository }}/backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}/frontend
+  K8S_MANIFESTS_PATH: k8s # Ajout d'une variable pour le chemin des manifests
 
 jobs:
-  test:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: read
+      packages: write # Nécessaire pour pousser vers GHCR
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        
-    - name: Install pnpm
-      run: npm install -g pnpm
-      
-    - name: Install frontend dependencies
-      run: |
-        cd frontend
-        pnpm install
-        
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        
-    - name: Install backend dependencies
-      run: |
-        cd backend
-        composer install --no-dev --optimize-autoloader
-        
-    - name: Run backend tests
-      run: |
-        cd backend
-        php artisan test --env=testing
+      - name: 1. Checkout du code
+        uses: actions/checkout@v4
 
-  build-docker:
-    needs: test
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: 2. Connexion au GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      # --- BACKEND (LARAVEL) BUILD & PUSH ---
 
-    - name: Build Backend Docker image
-      run: |
-        cd backend
-        docker build -t agenda-backend:${{ github.sha }} .
-        docker build -t agenda-backend:latest .
+      - name: 3. Définir les tags pour l'image Backend
+        id: backend_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix= # Utilise le SHA de commit comme tag
+            type=raw,value=latest
 
-    - name: Build Frontend Docker image  
-      run: |
-        cd frontend
-        docker build -t agenda-frontend:${{ github.sha }} .
-        docker build -t agenda-frontend:latest .
+      - name: 4. Construire et pousser l'image Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.backend_meta.outputs.tags }}
+          labels: ${{ steps.backend_meta.outputs.labels }}
 
-    - name: List Docker images
-      run: docker images | grep agenda
+      # --- FRONTEND (ANGULAR/NGINX) BUILD & PUSH ---
 
-  deploy-preview:
-    needs: build-docker
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      
-    - name: Validate Kubernetes configuration
-      run: |
-        echo "🔍 Validation de la configuration Kubernetes..."
-        
-        # Vérifier que le dossier k8s existe
-        if [ -d "k8s" ]; then
-          echo "✅ Dossier k8s présent"
-          echo "📁 Contenu du dossier k8s :"
-          ls -la k8s/
-        else
-          echo "⚠️ Dossier k8s manquant - en attente des fichiers de Jules"
-          mkdir -p k8s
-          echo "# Fichiers Kubernetes à ajouter par Jules" > k8s/README.md
-        fi
-        
-    - name: Simulate deployment
-      run: |
-        echo "🚀 SIMULATION : Déploiement Kubernetes"
-        echo "📋 Fichiers qui seraient déployés :"
-        find k8s/ -name "*.yaml" -o -name "*.yml" 2>/dev/null | while read file; do
-          echo "   ✅ $file"
-        done || echo "   ℹ️ Aucun fichier K8s trouvé - en attente"
-        
-        echo ""
-        echo "🎯 QUAND JULES AURA FINI :"
-        echo "1. Ses fichiers seront dans k8s/"
-        echo "2. Le pipeline les déploiera AUTOMATIQUEMENT"
-        echo "3. Plus besoin d'intervention manuelle !"
+      - name: 5. Définir les tags pour l'image Frontend
+        id: frontend_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix= # Utilise le SHA de commit comme tag
+            type=raw,value=latest
+
+      - name: 6. Construire et pousser l'image Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.frontend_meta.outputs.tags }}
+          labels: ${{ steps.frontend_meta.outputs.labels }}
+
+      # --- DEPLOIEMENT KUBERNETES ---
+
+      - name: 7. Configuration de Kubeconfig
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_DATA }}
+
+      - name: 8. Installation de kubectl
+        uses: azure/setup-kubectl@v4
+        id: install_kubectl # Ajout d'un ID pour référence future (bonne pratique)
+
+      - name: 9. Patch/Substitution des images dans les manifests K8s
+        # CRUCIAL : Remplace le tag "latest" par le tag SHA/GHCR
+        run: |
+          # Tag complet de l'image (ex: ghcr.io/monorg/monrepo/backend:SHA)
+          BACKEND_FULL_IMAGE=${{ steps.backend_meta.outputs.tags }}
+          FRONTEND_FULL_IMAGE=${{ steps.frontend_meta.outputs.tags }}
+
+          echo "Mise à jour de l'image Backend dans backend.yaml avec : $BACKEND_FULL_IMAGE"
+          # Utilise 'sed' pour remplacer l'image "agenda-backend:latest"
+          # par l'image complète taguée par SHA de GHCR.
+          sed -i "s|image: agenda-backend:latest|image: $BACKEND_FULL_IMAGE|g" backend.yaml
+
+          echo "Mise à jour de l'image Frontend dans frontend.yaml avec : $FRONTEND_FULL_IMAGE"
+          # Utilise 'sed' pour remplacer l'image "agenda-frontend:latest"
+          # par l'image complète taguée par SHA de GHCR.
+          sed -i "s|image: agenda-frontend:latest|image: $FRONTEND_FULL_IMAGE|g" frontend.yaml
+
+      - name: 10. Application des manifests Kubernetes et Migrations
+        # REMPLACER le script deploy.sh avec un enchaînement de commandes plus clair et spécifique au CI/CD
+        run: |
+          echo "Déploiement K8s démarré..."
+          
+          # 1. Appliquer tous les manifests dans l'ordre de dépendance
+          kubectl apply -f namespace.yaml
+          kubectl apply -f mariadb.yaml
+          kubectl apply -f backend.yaml
+          kubectl apply -f frontend.yaml
+
+          # 2. Attendre que la BDD soit prête
+          echo "⏳ Attente de MariaDB..."
+          kubectl wait --for=condition=ready pod -l app=mariadb -n agenda --timeout=300s
+
+          # 3. Attendre que le backend soit disponible (nouveau code)
+          echo "⏳ Attente du backend..."
+          kubectl wait --for=condition=available deployment/backend -n agenda --timeout=300s
+          
+          # 4. Exécuter les migrations (CRUCIAL pour Laravel)
+          echo "🗄️ Exécution des migrations..."
+          # Note: Assurez-vous que le pod backend est bien démarré avant cette étape
+          kubectl exec -n agenda deployment/backend -c backend -- php artisan migrate --force
+
+          echo "✅ Déploiement K8s terminé."
+
+
+      - name: 11. Vérification finale du statut du déploiement
+        run: |
+          # Correction : Le namespace est 'agenda' et non 'angenda'
+          kubectl rollout status deployment/backend -n agenda
+          kubectl rollout status deployment/frontend -n agenda

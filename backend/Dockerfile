@@ -1,4 +1,5 @@
-FROM php:8.2-fpm
+# Build stage
+FROM php:8.2-fpm AS builder
 
 RUN apt-get update && apt-get install -y \
     git unzip libpq-dev libzip-dev \
@@ -9,11 +10,30 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
 
+COPY composer.json composer.lock ./
+RUN composer install --no-dev --optimize-autoloader --no-scripts
+
 COPY . .
+RUN composer dump-autoload --optimize
 
-RUN composer install --no-dev --optimize-autoloader
+# Production stage
+FROM php:8.2-fpm
 
-RUN chown -R www-data:www-data /var/www/storage /var/www/bootstrap/cache
+RUN apt-get update && apt-get install -y \
+    libpq-dev libzip-dev \
+    && docker-php-ext-install pdo pdo_mysql zip \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -g 1000 appuser \
+    && useradd -u 1000 -g appuser -m appuser
+
+WORKDIR /var/www
+
+COPY --from=builder --chown=appuser:appuser /var/www .
+
+RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache \
+    && chown -R appuser:appuser storage bootstrap/cache
+
+USER appuser
 
 EXPOSE 8000
 

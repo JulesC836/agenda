@@ -4,10 +4,10 @@ metadata:
   name: backend-config
   namespace: agenda
 data:
-  DB_HOST: "mysql-service"
+  DB_HOST: "mariadb-service"
   DB_DATABASE: "agenda"
   DB_USERNAME: "user"
-  DB_PASSWORD: "supersecure"
+  DB_PASSWORD: "md_pass"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -27,6 +27,7 @@ spec:
       containers:
       - name: backend
         image: agenda-backend:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 8000
         envFrom:
