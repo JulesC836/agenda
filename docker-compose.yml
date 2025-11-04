@@ -9,12 +9,12 @@ services:
     image: mariadb:latest
     container_name: agenda-mariadb
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: supersecure
       MYSQL_DATABASE: agenda
       MYSQL_USER: user
       MYSQL_PASSWORD: md_pass
     ports:
-      - "3306:3306"
+      - "3308:3306"
     volumes:
       - mariadb_data:/var/lib/mysql
     networks:
@@ -32,8 +32,8 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      mariadb:
-        condition: service_healthy
+      - mariadb
+        # condition: service_healthy
     environment:
       DB_HOST: mariadb
       DB_DATABASE: agenda
