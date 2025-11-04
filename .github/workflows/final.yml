@@ -1,0 +1,127 @@
+name: Déploiement CI/CD sur Kubernetes (avec Tests)
+
+on:
+  push:
+    branches:
+      - main # Déclencher uniquement lors du push sur la branche 'main'
+
+env:
+  REGISTRY: ghcr.io
+  BACKEND_IMAGE_NAME: ${{ github.repository }}/backend
+  FRONTEND_IMAGE_NAME: ${{ github.repository }}/frontend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # Nécessaire pour pousser vers GHCR
+
+    steps:
+      - name: 1. Checkout du code
+        uses: actions/checkout@v4
+
+      # --- ÉTAPES DE TEST DU BACKEND (NOUVEAU) ---
+
+      - name: 2. Configurer PHP 8.2 et Extensions (Nécessaire pour Composer et Tests)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2' # Assurez-vous que cette version correspond à votre Dockerfile
+          extensions: mbstring, pdo_sqlite, dom, fileinfo
+          tools: composer # Installe Composer globalement
+          
+      - name: 3. Installer les dépendances Composer du Backend (inclut dev)
+        run: |
+          cd backend
+          composer install --prefer-dist --no-interaction
+          
+      - name: 4. Préparer l'environnement de Test Laravel
+        run: |
+          cd backend
+          cp .env.example .env
+          php artisan key:generate
+          
+          # Crée un fichier SQLite pour les tests (si phpunit.xml utilise le chemin du fichier)
+          mkdir -p database 
+          touch database/testing.sqlite
+          
+      - name: 5. Exécuter les tests du Backend
+        run: |
+          cd backend
+          # Exécute les migrations sur la BDD de test (SQLite)
+          php artisan migrate --env=testing --database=sqlite --force
+          php artisan test
+        env:
+          DB_CONNECTION: sqlite 
+          DB_DATABASE: database/testing.sqlite # Sera écrasé par :memory: si défini dans phpunit.xml
+          APP_ENV: testing
+
+      # --- REPRISE DU DÉPLOIEMENT DOCKER & K8S ---
+      
+      - name: 6. Connexion au GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 7. Définir les tags pour l'image Backend
+        id: backend_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.BACKEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: 8. Construire et pousser l'image Backend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: ${{ steps.backend_meta.outputs.tags }}
+          labels: ${{ steps.backend_meta.outputs.labels }}
+
+      - name: 9. Définir les tags pour l'image Frontend
+        id: frontend_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: 10. Construire et pousser l'image Frontend
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: ${{ steps.frontend_meta.outputs.tags }}
+          labels: ${{ steps.frontend_meta.outputs.labels }}
+
+      - name: 11. Configuration de Kubeconfig
+        uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBE_CONFIG_DATA }}
+
+      - name: 12. Installation de kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: 13. Exécution du script de déploiement K8s
+        run: |
+          echo "Déploiement K8s démarré..."
+          chmod +x ./k8s/deploy.sh
+          ./k8s/deploy.sh
+        env:
+          BACKEND_SHA_TAG: ${{ steps.backend_meta.outputs.sha }}
+          FRONTEND_SHA_TAG: ${{ steps.frontend_meta.outputs.sha }}
+          REGISTRY_HOST: ${{ env.REGISTRY }}
+          REPO_NAME: ${{ github.repository }}
+
+      - name: 14. Vérification du statut du déploiement
+        run: |
+          kubectl rollout status deployment/backend -n angenda
+          kubectl rollout status deployment/frontend -n angenda
