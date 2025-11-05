@@ -101,14 +101,18 @@ jobs:
           tags: ${{ steps.frontend_meta.outputs.tags }}
           labels: ${{ steps.frontend_meta.outputs.labels }}
 
-      - name: 11. Configuration de Kubeconfig
-        uses: azure/k8s-set-context@v4
-        with:
-          method: kubeconfig
-          kubeconfig: ${{ secrets.KUBE_CONFIG }}
-
-      - name: 12. Installation de kubectl
+      - name: 11. Configuration de kubectl
         uses: azure/setup-kubectl@v4
+        
+      - name: 12. Création et Configuration du Fichier Kubeconfig (Décodage Base64)
+        run: |
+          # Le secret doit contenir la version Base64 de votre kubeconfig
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > /tmp/kubeconfig
+          # Indique à kubectl d'utiliser ce fichier temporaire pour les commandes suivantes
+          echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
+        env:
+          # Il est important d'utiliser la variable du secret Kubeconfig encodée en Base64
+          KUBE_CONFIG_BASE64: ${{ secrets.KUBE_CONFIG }}**
 
       - name: 13. Exécution du script de déploiement K8s
         run: |
