@@ -107,12 +107,12 @@ jobs:
       - name: 12. Création et Configuration du Fichier Kubeconfig (Décodage Base64)
         run: |
           # Le secret doit contenir la version Base64 de votre kubeconfig
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > /tmp/kubeconfig
+          echo "${{ secrets.KUBE_CONFIG_DATA }}" | base64 --decode > /tmp/kubeconfig
           # Indique à kubectl d'utiliser ce fichier temporaire pour les commandes suivantes
           echo "KUBECONFIG=/tmp/kubeconfig" >> $GITHUB_ENV
         env:
           # Il est important d'utiliser la variable du secret Kubeconfig encodée en Base64
-          KUBE_CONFIG_BASE64: ${{ secrets.KUBE_CONFIG }}**
+          KUBE_CONFIG_BASE64: ${{ secrets.KUBE_CONFIG_DATA }}**
 
       - name: 13. Exécution du script de déploiement K8s
         run: |
