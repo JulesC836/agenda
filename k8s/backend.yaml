@@ -24,6 +24,11 @@ spec:
     metadata:
       labels:
         app: backend
+    annotations:
+        # Annotation standard pour le scraping Kubernetes
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000" # Le port de l'application Laravel
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: backend
