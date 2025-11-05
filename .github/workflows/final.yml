@@ -125,7 +125,4 @@ jobs:
           REGISTRY_HOST: ${{ env.REGISTRY }}
           REPO_NAME: ${{ github.repository }}
 
-      - name: 14. Vérification du statut du déploiement
-        run: |
-          kubectl rollout status deployment/backend -n angenda
-          kubectl rollout status deployment/frontend -n angenda
+  
