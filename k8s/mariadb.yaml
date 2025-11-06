@@ -1,26 +1,24 @@
 # --- 1. PersistentVolumeClaim (PVC) ---
-# Demande de stockage persistant. Minikube utilisera son provisionneur par défaut.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mariadb-pvc
   namespace: agenda
 spec:
-  # Suppression de storageClassName: fast-ssd pour utiliser le provisionneur par défaut de Minikube.
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi 
 ---
-# --- 2. StatefulSet (Remplacement de Deployment pour une BDD) ---
+# --- 2. StatefulSet ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: mariadb
   namespace: agenda
 spec:
-  serviceName: "mariadb-service" # Nécessaire pour StatefulSet
+  serviceName: "mariadb-service"
   replicas: 1
   selector:
     matchLabels:
@@ -32,37 +30,35 @@ spec:
     spec:
       containers:
         - name: mariadb
-          # CHANGEMENT: Utilisation d'une image MariaDB stable
-          image: mariadb:11.1
+          image: mariadb:12.0
           imagePullPolicy: IfNotPresent
           env:
-            # Sécurité: La clé root n'est plus en clair
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  # Réutiliser le secret existant ou un nouveau (ici nous l'injectons depuis le backend-secret)
                   name: backend-app-secret
-                  key: APP_KEY # Mauvaise pratique mais utilise une clé existante
-            
-            # Paramètres de l'utilisateur de l'application
+                  key: APP_KEY
             - name: MYSQL_DATABASE
               value: "agenda"
             - name: MYSQL_USER
               value: "user" 
             - name: MYSQL_PASSWORD 
-              value: "md_pass" 
+              value: "md_pass"
+          # Ajout de la commande pour forcer la collation
+          args:
+            - "--character-set-server=utf8mb4"
+            - "--collation-server=utf8mb4_unicode_ci"
           ports:
             - containerPort: 3306
           volumeMounts:
             - name: mariadb-storage
               mountPath: /var/lib/mysql
-      # Le volume est créé dynamiquement par le PVC
       volumes:
         - name: mariadb-storage
           persistentVolumeClaim:
             claimName: mariadb-pvc
 ---
-# --- 3. Service (Accès Interne pour le Backend) ---
+# --- 3. Service ---
 apiVersion: v1
 kind: Service
 metadata:

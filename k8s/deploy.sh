@@ -4,7 +4,7 @@ echo "🚀 Déploiement de l'application Agenda sur Kubernetes"
 
 # Build images
 
-# minikube start --addons=ingress --addons=metrics-server
+minikube start --addons=ingress --addons=metrics-server
 eval $(minikube -p minikube docker-env)  
 
 docker build -t agenda-backend:latest ./backend
@@ -38,9 +38,11 @@ kubectl wait --for=condition=available deployment/backend -n agenda --timeout=30
 # Run migrations
 
 echo "🗄️ Exécution des migrations..."
-kubectl exec -n agenda deployment/backend -c backend -- php artisan migrate --force
-kubectl exec -n agenda deployment/backend -c backend -- php artisan key:generate --force
 kubectl exec -n agenda deployment/backend -c backend -- php artisan jwt:secret
 kubectl exec -n agenda deployment/backend -c backend -- composer dump-autoload --no-dev --optimize
 
-echo "✅ Déploiement terminé. Accès via: http://agenda.local"
+echo "Exposition des port du service frontend et de l'api"
+kubectl port-forward svc/backend-service 8000:8000 -n agenda &
+kubectl port-forward svc/frontend-service 4200:80 -n agenda &
+
+echo "✅ Déploiement terminé. Accès via: http://localhost:4200"
