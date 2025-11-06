@@ -1,5 +1,95 @@
 # Architecture de l'Application Agenda
 
+## Diagrammes d'Infrastructure
+
+### Architecture Docker Compose
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Docker Host                                       │
+│                                                                             │
+│  ┌─────────────────────────┐    ┌─────────────────────────┐                │
+│  │    frontend-container   │    │    backend-container    │                │
+│  │      (nginx:alpine)     │    │      (php:8.2-fpm)     │                │
+│  │                         │    │                         │                │
+│  │    Port: 4200:80        │    │    Port: 8000:8000     │                │
+│  │    Volume: ./frontend   │    │    Volume: ./backend    │                │
+│  └─────────────────────────┘    └─────────────────────────┘                │
+│              │                              │                               │
+│              │ HTTP/REST API                │                               │
+│              └─────────────────────────────►│                               │
+│                                             │                               │
+│                                             │ Database                      │
+│                                             │ Connection                    │
+│                                             ▼                               │
+│                                  ┌─────────────────────────┐               │
+│                                  │    mysql-container      │               │
+│                                  │      (mysql:8.0)        │               │
+│                                  │                         │               │
+│                                  │    Port: 3306:3306      │               │
+│                                  │    Volume: mysql_data   │               │
+│                                  └─────────────────────────┘               │
+│                                                                             │
+│  Network: agenda_network (bridge)                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Architecture Kubernetes Pods
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Kubernetes Cluster                             │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────────┐ │
+│  │                            Ingress Controller                           │ │
+│  │                         agenda.local:80 → :80                          │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│                    │                              │                         │
+│               / (Frontend)                   /api (Backend)                 │
+│                    │                              │                         │
+│  ┌─────────────────────────────┐    ┌─────────────────────────────┐         │
+│  │     frontend-service        │    │     backend-service         │         │
+│  │      ClusterIP:80           │    │      ClusterIP:8000         │         │
+│  │      Selector: app=frontend │    │      Selector: app=backend  │         │
+│  └─────────────────────────────┘    └─────────────────────────────┘         │
+│                    │                              │                         │
+│  ┌─────────────────────────────┐    ┌─────────────────────────────┐         │
+│  │    frontend-deployment      │    │    backend-deployment       │         │
+│  │      Replicas: 2            │    │      Replicas: 2            │         │
+│  │                             │    │                             │         │
+│  │  ┌─────────────────────────┐ │    │  ┌─────────────────────────┐ │         │
+│  │  │     frontend-pod-1      │ │    │  │     backend-pod-1       │ │         │
+│  │  │   Container: nginx      │ │    │  │   Container: php-fpm    │ │         │
+│  │  │   Port: 80              │ │    │  │   Port: 8000            │ │         │
+│  │  └─────────────────────────┘ │    │  └─────────────────────────┘ │         │
+│  │                             │    │                             │         │
+│  │  ┌─────────────────────────┐ │    │  ┌─────────────────────────┐ │         │
+│  │  │     frontend-pod-2      │ │    │  │     backend-pod-2       │ │         │
+│  │  │   Container: nginx      │ │    │  │   Container: php-fpm    │ │         │
+│  │  │   Port: 80              │ │    │  │   Port: 8000            │ │         │
+│  │  └─────────────────────────┘ │    │  └─────────────────────────┘ │         │
+│  └─────────────────────────────┘    └─────────────────────────────┘         │
+│                                                   │                         │
+│                                       ┌─────────────────────────────┐       │
+│                                       │      mysql-service          │       │
+│                                       │      ClusterIP:3306         │       │
+│                                       │      Selector: app=mysql    │       │
+│                                       └─────────────────────────────┘       │
+│                                                   │                         │
+│                                       ┌─────────────────────────────┐       │
+│                                       │    mysql-deployment         │       │
+│                                       │      Replicas: 1            │       │
+│                                       │                             │       │
+│                                       │  ┌─────────────────────────┐ │       │
+│                                       │  │      mysql-pod          │ │       │
+│                                       │  │   Container: mysql      │ │       │
+│                                       │  │   Port: 3306            │ │       │
+│                                       │  │   PVC: mysql-pvc        │ │       │
+│                                       │  └─────────────────────────┘ │       │
+│                                       └─────────────────────────────┘       │
+│                                                                             │
+│  Namespace: agenda                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Vue d'ensemble
 
 ### Architecture Locale
@@ -53,93 +143,31 @@
                                        └─────────────────────────────────┘
 ```
 
-## Architecture Frontend (Angular)
+## 🎨 Frontend (Angular)
 
 ```
 src/app/
-├── components/
-│   ├── auth/
-│   │   ├── login.component.*           # Connexion utilisateur
-│   │   └── register.component.*        # Inscription utilisateur
-│   ├── calendar/
-│   │   └── calendar.component.*        # Vue calendrier principal
-│   ├── day-events/
-│   │   └── day-events.component.*      # Modale événements du jour
-│   └── event/
-│       └── event-form.component.*      # Formulaire CRUD événements
-├── services/
-│   ├── auth.service.ts                 # Gestion authentification
-│   └── event.service.ts                # API événements
-├── guards/
-│   └── auth.guard.ts                   # Protection routes
-├── interceptors/
-│   └── auth.interceptor.ts             # Injection token JWT
-├── models/
-│   ├── event.model.ts                  # Interface Event
-│   └── user.model.ts                   # Interface User
-└── app.routes.ts                       # Configuration routes
+├── components/          # Auth, Calendar, Events
+├── services/           # API calls
+├── guards/            # Route protection
+└── models/            # TypeScript interfaces
 ```
 
-## Architecture Backend (Laravel)
+## ⚙️ Backend (Laravel)
 
 ```
 app/
-├── Http/
-│   ├── Controllers/
-│   │   ├── AuthController.php          # Authentification JWT + UserRepository
-│   │   └── EventController.php         # CRUD événements + EventRepository
-│   ├── Requests/
-│   │   ├── EventRequest.php            # Validation événements + rappels
-│   │   ├── LoginRequest.php            # Validation connexion
-│   │   └── RegisterRequest.php         # Validation inscription
-│   ├── Resources/
-│   │   └── EventResource.php           # Formatage JSON
-│   └── Middleware/
-│       └── auth:api                    # Vérification JWT
-├── Jobs/
-│   └── SendEventReminderJob.php        # Job envoi emails rappels
-├── Console/
-│   ├── Commands/
-│   │   └── SendEventReminders.php      # Command traitement rappels
-│   └── Kernel.php                      # Programmation tâches
-├── Repositories/
-│   ├── Contracts/
-│   │   ├── EventRepositoryInterface.php # Interface Event Repository
-│   │   └── UserRepositoryInterface.php  # Interface User Repository
-│   └── Eloquent/
-│       ├── EventRepository.php         # Implémentation Event Repository
-│       └── UserRepository.php          # Implémentation User Repository
-├── Models/
-│   ├── User.php                        # Modèle utilisateur
-│   └── Event.php                       # Modèle événement + rappels
-├── Policies/
-│   └── EventPolicy.php                 # Autorisation événements
-└── Providers/
-    └── AppServiceProvider.php          # Configuration policies + repositories
+├── Http/Controllers/   # Auth, Events
+├── Models/            # User, Event
+├── Repositories/      # Data access
+└── Jobs/             # Email reminders
 ```
 
-## Base de Données
+## 🗄️ Base de Données
 
 ```
-┌─────────────────┐    ┌─────────────────────────────────────┐
-│     users       │    │              events                 │
-├─────────────────┤    ├─────────────────────────────────────┤
-│ id (PK)         │◄───┤ user_id (FK)                        │
-│ name            │    │ id (PK)                             │
-│ email           │    │ title                               │
-│ password        │    │ description                         │
-│ timezone        │    │ start_date                          │
-│ created_at      │    │ end_date                            │
-│ updated_at      │    │ location                            │
-└─────────────────┘    │ color                               │
-                       │ is_all_day                          │
-                       │ has_reminder                        │
-                       │ reminder_minutes                    │
-                       │ reminder_sent                       │
-                       │ created_at                          │
-                       │ updated_at                          │
-                       │ deleted_at (soft delete)            │
-                       └─────────────────────────────────────┘
+users (id, name, email, password)
+events (id, user_id, title, start_date, end_date, color)
 ```
 
 ## Flux d'Interactions
@@ -226,118 +254,18 @@ Frontend                    Backend                     Repository              
    │◄─────────────────────────┤ Success message           │                       │
 ```
 
-## Sécurité
+## 🔒 Sécurité
 
-### JWT Flow
-```
-1. Login → JWT Token généré
-2. Token stocké dans localStorage
-3. AuthInterceptor ajoute "Bearer {token}" à chaque requête
-4. Backend vérifie le token via middleware auth:api
-5. EventPolicy vérifie que user_id = auth()->id()
-```
+- JWT Authentication
+- Route Guards (Frontend/Backend)
+- User-specific data isolation
 
-### Protection des Routes
-```
-Frontend: AuthGuard → Vérifie token valide
-Backend: auth:api middleware → Vérifie JWT
-Backend: EventPolicy → Vérifie propriété des événements
-```
-
-## Technologies Utilisées
-
-### Frontend
-- **Angular 18** : Framework principal
-- **TypeScript** : Langage
-- **RxJS** : Gestion asynchrone
-- **HTTP Client** : Communication API
-
-### Backend
-- **Laravel 11** : Framework PHP
-- **JWT Auth** : Authentification
-- **Repository Pattern** : Séparation logique métier
-- **Eloquent ORM** : Base de données
-- **API Resources** : Formatage JSON
-- **Dependency Injection** : Inversion de contrôle
-
-### Base de Données
-- **MySQL/SQLite** : Stockage
-- **Migrations** : Versioning schéma
-- **Soft Deletes** : Suppression logique
-- **Jobs/Queues** : Traitement asynchrone emails
-
-## Infrastructure (Docker/Kubernetes)
-
-### Architecture Conteneurisée
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              KUBERNETES CLUSTER                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                     │
-│  │  Frontend   │    │   Backend   │    │    MySQL    │                     │
-│  │  (Nginx)    │    │  (Laravel)  │    │ (Database)  │                     │
-│  │  Port: 80   │    │  Port: 8000 │    │ Port: 3306  │                     │
-│  │  2 replicas │    │  2 replicas │    │  1 replica  │                     │
-│  └─────────────┘    └─────────────┘    └─────────────┘                     │
-│         │                   │                   │                           │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                        INGRESS                                     │   │
-│  │  / → Frontend Service                                              │   │
-│  │  /api → Backend Service                                            │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Services Kubernetes
-
-- **Namespace**: `agenda` - Isolation des ressources
-- **MySQL**: PersistentVolumeClaim 1Gi + Service
-- **Backend**: Deployment 2 replicas + ConfigMap + Service
-- **Frontend**: Deployment 2 replicas + Service
-- **Ingress**: Routage intelligent (/ → frontend, /api → backend)
-
-### Docker Images
-
-```
-# Backend
-FROM php:8.2-fpm
-+ Composer
-+ Extensions MySQL/ZIP
-+ Laravel optimisé
-
-# Frontend  
-FROM node:18-alpine (build)
-+ Angular build
-FROM nginx:alpine (runtime)
-+ Fichiers statiques
-+ Configuration Nginx
-```
-
-## Fonctionnalités Avancées
-
-### Rappels Email
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Scheduler     │    │   Queue Job     │    │   SMTP Server   │
-│  (Cron/K8s)     │    │  (Laravel)      │    │   (Gmail/etc)   │
-├─────────────────┤    ├─────────────────┤    ├─────────────────┤
-│ Chaque minute   │───►│ SendEventReminder│───►│ Envoi email     │
-│ Vérifie rappels │    │ Job             │    │ utilisateur     │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-### Déploiement
+## 🚀 Déploiement
 
 ```bash
-# Développement local
+# Local
 docker-compose up --build
 
-# Production Kubernetes
+# Production
 ./k8s/deploy.sh
-
-# Monitoring
-kubectl get pods -n agenda
-kubectl logs -f deployment/backend -n agenda
 ```

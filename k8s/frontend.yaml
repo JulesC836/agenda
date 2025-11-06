@@ -10,6 +10,10 @@ spec:
       app: frontend
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true" # Indique à Prometheus de collecter les métriques
+        prometheus.io/port: "80" # Remplacez par le port d'exposition des métriques de l'application
+        prometheus.io/path: "/metrics"
       labels:
         app: frontend
     spec:
@@ -29,7 +33,7 @@ spec:
   selector:
     app: frontend
   ports:
-  - port: 4200
+  - port: 80
     targetPort: 80
 ---
 apiVersion: networking.k8s.io/v1
@@ -48,7 +52,7 @@ spec:
           service:
             name: frontend-service
             port:
-              number: 4200
+              number: 80
       - path: /api
         pathType: Prefix
         backend:

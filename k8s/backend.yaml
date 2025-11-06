@@ -9,6 +9,8 @@ data:
   DB_DATABASE: "agenda"
   DB_USERNAME: "user"
   DB_PASSWORD: "md_pass"
+  DB_COLLATION: "utf8mb4_unicode_ci"
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -24,6 +26,10 @@ spec:
     metadata:
       labels:
         app: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: backend
