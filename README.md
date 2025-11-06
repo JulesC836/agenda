@@ -154,7 +154,7 @@ angenda/
 
 ## Technologies Utilisées
 
-### Backend
+### Backends
 - **Laravel 11** - Framework PHP
 - **JWT Auth** - Authentification
 - **MySQL/SQLite** - Base de données
@@ -248,3 +248,141 @@ ng lint
 - [Architecture.md](Architecture.md) - Architecture détaillée
 - [RAPPELS_EMAIL.md](RAPPELS_EMAIL.md) - Fonctionnalité rappels
 - [DOCKER_K8S.md](DOCKER_K8S.md) - Containerisation
+
+
+🚀 Pipeline CI/CD
+Logique du Pipeline
+
+Le pipeline CI/CD est déclenché automatiquement sur GitHub Actions et exécute les étapes suivantes :
+Étapes du Pipeline:
+  1. Déclenchement:
+     - Sur push vers les branches 'main' ou 'develop'
+     - Sur création de Pull Request
+     - Manuellement via l'interface GitHub
+
+  2. Validation du Code:
+     - Linting PHP (PHP CS Fixer)
+     - Linting TypeScript (ESLint)
+     - Validation des syntaxes YAML/Dockerfile
+
+  3. Construction des Images:
+     - Build Frontend (Angular + Nginx)
+     - Build Backend (Laravel + PHP-FPM)
+     - Build Database (MySQL avec données d'initialisation)
+     - Scan de sécurité des images avec Trivy
+
+  4. Tests Automatisés:
+     - Tests unitaires Backend (PHPUnit)
+     - Tests unitaires Frontend (Jasmine/Karma)
+     - Tests d'intégration avec Docker Compose
+     - Tests E2E optionnels
+
+  5. Déploiement:
+     - Environnement PREVIEW pour les PR:
+       • Namespace Kubernetes dédié
+       • URL unique: pr-{num}.agenda-preview.example.com
+       • Suppression auto après merge/close
+     
+     - Environnement PRODUCTION pour main:
+       • Déploiement blue/green
+       • Tests de smoke post-déploiement
+       • Rollback automatique en cas d'échec
+
+  6. Monitoring:
+     - Notification Slack/Sur les statuts
+     - Métriques de performance
+     - Logs centralisés
+
+     Commandes Principales
+Construction des Images Docker
+# Build des trois services
+docker build -t agenda-frontend:latest -f docker/frontend.Dockerfile ./frontend
+docker build -t agenda-backend:latest -f docker/backend.Dockerfile ./backend  
+docker build -t agenda-mysql:latest -f docker/mysql.Dockerfile .
+
+# Tag et push vers le registry
+docker tag agenda-frontend:latest ghcr.io/votre-org/agenda-frontend:${GIT_SHA}
+docker tag agenda-backend:latest ghcr.io/votre-org/agenda-backend:${GIT_SHA}
+docker push ghcr.io/votre-org/agenda-frontend:${GIT_SHA}
+
+# Tests Backend
+cd backend && composer test
+php artisan test --parallel
+
+# Tests Frontend  
+cd frontend && npm test
+npm run e2e
+
+# Tests d'intégration
+docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+docker-compose -f docker-compose.test.yml down
+
+
+Déploiement Kubernetes
+
+# Appliquer la configuration de base
+kubectl apply -f k8s/namespace.yaml
+
+# Déployer les services dans l'ordre
+kubectl apply -f k8s/storage/mysql-pvc.yaml
+kubectl apply -f k8s/databases/mysql.yaml
+kubectl apply -f k8s/configs/backend-config.yaml
+kubectl apply -f k8s/services/backend.yaml
+kubectl apply -f k8s/services/frontend.yaml
+kubectl apply -f k8s/networking/ingress.yaml
+
+# Vérification du déploiement
+kubectl -n agenda get all
+kubectl -n agenda get ingress
+kubectl -n agenda logs deployment/backend-deployment
+
+Commandes de Debug et Maintenance
+# Accès aux pods
+kubectl -n agenda get pods
+kubectl -n agenda exec -it frontend-pod -- /bin/sh
+
+# Logs en temps réel
+kubectl -n agenda logs -f deployment/backend-deployment
+kubectl -n agenda logs -f deployment/frontend-deployment
+
+# Scale des services
+kubectl -n agenda scale deployment/backend-deployment --replicas=3
+kubectl -n agenda scale deployment/frontend-deployment --replicas=2
+
+# Rollback manuel
+kubectl -n agenda rollout undo deployment/backend-deployment
+kubectl -n agenda rollout undo deployment/frontend-deployment
+
+Utilitaires de Développement
+# Port-forward pour accès local
+kubectl -n agenda port-forward service/backend-service 8000:8000
+kubectl -n agenda port-forward service/frontend-service 4200:80
+
+# Inspection des configurations
+kubectl -n agenda describe deployment/backend-deployment
+kubectl -n agenda get configmap/backend-config -o yaml
+
+# Nettoyage des environnements preview
+kubectl delete namespace agenda-preview-123
+
+
+🧪 Commandes de Test des Conteneurs
+Docker Compose (Développement)
+# Vérifier que les conteneurs tournent
+docker-compose ps
+
+# Voir les logs
+docker-compose logs -f frontend
+docker-compose logs -f backend
+docker-compose logs -f mysql
+
+# Tester l'accessibilité
+curl http://localhost:4200
+curl http://localhost:8000/api/events
+
+# Tester la BDD
+docker-compose exec mysql mysql -u user -pmd_pass -e "SHOW DATABASES;"
+
+# Accès shell dans les conteneurs
+docker-compose exec backend /bin/sh
+docker-compose exec frontend /bin/sh
