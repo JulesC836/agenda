@@ -135,10 +135,24 @@ docker/
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
+### Logique du Pipeline
+
+**Déclenchement** : Push sur branche `main` → Exécution automatique GitHub Actions
+
+**Philosophie** : Fail Fast - Arrêt immédiat si une étape échoue pour éviter les déploiements défaillants
+
+**Sécurité** : 
+- Tests obligatoires avant build
+- Images taguées avec SHA Git pour traçabilité
+- Secrets chiffrés (KUBE_CONFIG_DATA, GITHUB_TOKEN)
+
+**Rollback** : En cas d'échec du déploiement, Kubernetes maintient automatiquement la version précédente
+
 ### Étapes Pipeline
 
 1. **Tests Backend**
    ```bash
+   # Validation du code avant déploiement
    composer install
    php artisan key:generate
    php artisan test
@@ -146,12 +160,14 @@ docker/
 
 2. **Build Images**
    ```bash
+   # Construction et push vers registry
    docker build -t ghcr.io/repo/backend:sha-abc123 ./backend
    docker build -t ghcr.io/repo/frontend:sha-abc123 ./frontend
    ```
 
 3. **Deploy Kubernetes**
    ```bash
+   # Mise à jour rolling des pods
    kubectl apply -f k8s/
    kubectl rollout status deployment/backend -n agenda
    ```

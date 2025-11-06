@@ -1,44 +1,44 @@
 # --- ÉTAPE 1 : CONSTRUCTION (Nommée "builder") ---
-# Utilisez une image Node pour compiler l'application Angular
 FROM node:20-alpine AS builder
 
-# Définir le répertoire de travail
 WORKDIR /usr/src/app
 
-# Installer pnpm globalement (gestionnaire de paquets)
+# Installer pnpm globalement
 RUN npm install -g pnpm
 
-
+# Copier les fichiers de dépendances
 COPY package*.json ./
 COPY pnpm-lock.yaml ./
 
-# Installer toutes les dépendances (y compris les dépendances de développement)
-# Cela est crucial pour que le compilateur Angular trouve @types/node.
-RUN pnpm install @types/node --save-dev
+# Installer les dépendances
 RUN pnpm install --frozen-lockfile
 
-# Copier le reste du code source (pour la compilation)
+# Copier le reste du code source
 COPY . .
 
 # Construire l'application Angular
-
-RUN npm run build --output-path=./dist/frontend --configuration=production
+# La configuration de production doit être dans angular.json
+RUN pnpm run build --configuration=production
 
 # --- ÉTAPE 2 : PRODUCTION (Serveur Nginx léger) ---
 FROM nginx:alpine
 
-RUN rm /usr/share/nginx/html/*.html
+# Supprimer la configuration par défaut de Nginx
+RUN rm -rf /usr/share/nginx/html/*
 
-COPY --from=builder /usr/src/app/dist/frontend/. /usr/share/nginx/html
+# Copier les fichiers buildés depuis l'étape builder
+# Adapter le chemin selon votre configuration Angular
+COPY --from=builder /usr/src/app/dist/frontend/browser /usr/share/nginx/html
 
-# Copier le fichier de configuration Nginx DEPUIS le contexte de construction
-COPY agenda.conf /etc/nginx/conf.d/agenda.conf
+# Copier la configuration Nginx personnalisée
+COPY agenda.conf /etc/nginx/conf.d/default.conf
 
-RUN chmod -R 755 /usr/share/nginx/html
+# S'assurer que les fichiers sont accessibles
+RUN chown -R nginx:nginx /usr/share/nginx/html
+RUN chmod -R +r /usr/share/nginx/html
 
-
-# Exposer le port par défaut de Nginx
+# Exposer le port 80
 EXPOSE 80
 
-# Le conteneur démarre Nginx par défaut
+# Démarrer Nginx
 CMD ["nginx", "-g", "daemon off;"]
