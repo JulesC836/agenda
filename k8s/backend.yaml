@@ -4,8 +4,12 @@ metadata:
   name: backend-config
   namespace: agenda
 data:
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  LOG_CHANNEL: "stderr"
   DB_CONNECTION: "mysql"
   DB_HOST: "mariadb-service"
+  DB_PORT: "3306"
   DB_DATABASE: "agenda"
   DB_USERNAME: "user"
   DB_PASSWORD: "md_pass"
@@ -40,12 +44,36 @@ spec:
         envFrom:
         - configMapRef:
             name: backend-config
-        env: # Ajout pour charger l'APP_KEY
+        env:
         - name: APP_KEY
           valueFrom:
             secretKeyRef:
               name: backend-app-secret 
               key: APP_KEY
+        # Probes pour vérifier la santé du container
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
@@ -56,5 +84,6 @@ spec:
   selector:
     app: backend
   ports:
-  - port: 8000
+  - name: backend-port
+    port: 8000
     targetPort: 8000
