@@ -84,6 +84,6 @@ spec:
   selector:
     app: backend
   ports:
-  - name: http
+  - name: backend-port
     port: 8000
     targetPort: 8000

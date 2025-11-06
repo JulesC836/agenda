@@ -35,6 +35,7 @@ spec:
   ports:
   - port: 80
     targetPort: 80
+    name: frontend-port
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

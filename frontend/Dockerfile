@@ -28,10 +28,10 @@ RUN rm -rf /usr/share/nginx/html/*
 
 # Copier les fichiers buildés depuis l'étape builder
 # Adapter le chemin selon votre configuration Angular
-COPY --from=builder /usr/src/app/dist/frontend/browser /usr/share/nginx/html
+COPY --from=builder /usr/src/app/dist/frontend/browser/. /usr/share/nginx/html
 
 # Copier la configuration Nginx personnalisée
-COPY agenda.conf /etc/nginx/conf.d/agenda.conf
+COPY agenda.conf /etc/nginx/conf.d/default.conf
 
 # S'assurer que les fichiers sont accessibles
 RUN chown -R nginx:nginx /usr/share/nginx/html
