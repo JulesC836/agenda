@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: ServiceMonitor
+metadata:
+  name: agenda-monitor
+  namespace: agenda
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  endpoints:
+  - port: http
+    path: /metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: agenda-rules
+  namespace: agenda
+spec:
+  groups:
+  - name: agenda.rules
+    rules:
+    - alert: BackendDown
+      expr: up{job="agenda-backend"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Backend service is down"
+    - alert: HighResponseTime
+      expr: http_request_duration_seconds > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High response time detected"

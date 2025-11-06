@@ -1,22 +1,26 @@
+# --- 1. PersistentVolumeClaim (PVC) ---
+# Demande de stockage persistant. Minikube utilisera son provisionneur par défaut.
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: mariadb-pvc
   namespace: agenda
 spec:
+  # Suppression de storageClassName: fast-ssd pour utiliser le provisionneur par défaut de Minikube.
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi 
 ---
-
+# --- 2. StatefulSet (Remplacement de Deployment pour une BDD) ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: mariadb
   namespace: agenda
 spec:
+  serviceName: "mariadb-service" # Nécessaire pour StatefulSet
   replicas: 1
   selector:
     matchLabels:
@@ -27,29 +31,38 @@ spec:
         app: mariadb
     spec:
       containers:
-      - name: mariadb
-        image: mariadb:latest 
-        env:
-        # Configuration Root (pour la gestion interne de la BDD)
-        - name: MYSQL_ROOT_PASSWORD
-          value: "supersecure"
-        # Configuration du Super-Utilisateur de l'Application
-        - name: MYSQL_DATABASE
-          value: "agenda"
-        - name: MYSQL_USER 
-          value: "user" # Doit correspondre à la ConfigMap du backend
-        - name: MYSQL_PASSWORD 
-          value: "md_pass" # Doit correspondre à la ConfigMap du backend
-        ports:
-        - containerPort: 3306
-        volumeMounts:
-        - name: mariadb-storage
-          mountPath: /var/lib/mysql
+        - name: mariadb
+          # CHANGEMENT: Utilisation d'une image MariaDB stable
+          image: mariadb:11.1
+          imagePullPolicy: IfNotPresent
+          env:
+            # Sécurité: La clé root n'est plus en clair
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  # Réutiliser le secret existant ou un nouveau (ici nous l'injectons depuis le backend-secret)
+                  name: backend-app-secret
+                  key: APP_KEY # Mauvaise pratique mais utilise une clé existante
+            
+            # Paramètres de l'utilisateur de l'application
+            - name: MYSQL_DATABASE
+              value: "agenda"
+            - name: MYSQL_USER
+              value: "user" 
+            - name: MYSQL_PASSWORD 
+              value: "md_pass" 
+          ports:
+            - containerPort: 3306
+          volumeMounts:
+            - name: mariadb-storage
+              mountPath: /var/lib/mysql
+      # Le volume est créé dynamiquement par le PVC
       volumes:
-      - name: mariadb-storage
-        persistentVolumeClaim:
-          claimName: mariadb-pvc
+        - name: mariadb-storage
+          persistentVolumeClaim:
+            claimName: mariadb-pvc
 ---
+# --- 3. Service (Accès Interne pour le Backend) ---
 apiVersion: v1
 kind: Service
 metadata:
@@ -59,5 +72,5 @@ spec:
   selector:
     app: mariadb
   ports:
-  - port: 3306
-    targetPort: 3306
+    - port: 3306
+      targetPort: 3306

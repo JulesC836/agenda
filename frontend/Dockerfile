@@ -37,6 +37,7 @@ COPY agenda.conf /etc/nginx/conf.d/agenda.conf
 RUN chmod -R 755 /usr/share/nginx/html
 
 
+
 # Exposer le port par défaut de Nginx
 EXPOSE 80
 

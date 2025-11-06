@@ -9,6 +9,8 @@ data:
   DB_DATABASE: "agenda"
   DB_USERNAME: "user"
   DB_PASSWORD: "md_pass"
+  DB_COLLATION: "utf8mb4_unicode_ci"
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -24,10 +26,9 @@ spec:
     metadata:
       labels:
         app: backend
-    annotations:
-        # Annotation standard pour le scraping Kubernetes
+      annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "8000" # Le port de l'application Laravel
+        prometheus.io/port: "8000"
         prometheus.io/path: "/metrics"
     spec:
       containers:
