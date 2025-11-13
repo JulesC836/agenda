@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agenda-backend-monitor
+  namespace: monitoring  # ← Doit être dans le namespace monitoring!
+spec:
+  selector:
+    matchLabels:
+      monitoring: "true"  # Cible le service backend avec ce label
+  endpoints:
+  - port: backend-port    # Doit correspondre au nom dans le service
+    path: /api/metrics    # Chemin vers les métriques
+    interval: 30s
+    scheme: http
+  namespaceSelector:
+    matchNames:
+    - agenda              # Surveille le namespace agenda
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: agenda-frontend-monitor
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: frontend-service  # Doit correspondre au service Kubernetes
+  endpoints:
+  - port: frontend-port  # Doit correspondre au port name dans le Service
+    path: /metrics  # Le endpoint où les métriques sont exposées
+    interval: 30s

@@ -14,6 +14,8 @@ data:
   DB_USERNAME: "user"
   DB_PASSWORD: "md_pass"
   DB_COLLATION: "utf8mb4_unicode_ci"
+  PROMETHEUS_METRICS_PORT: "8000"
+  PROMETHEUS_METRICS_PATH: "/api/metrics"  # ← CORRIGÉ avec préfixe API
 
 ---
 apiVersion: apps/v1
@@ -30,10 +32,12 @@ spec:
     metadata:
       labels:
         app: backend
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-        prometheus.io/path: "/metrics"
+        monitoring: "true"  # Important pour ServiceMonitor
+      # annotations:
+      #   prometheus.io/scrape: "true"
+      #   prometheus.io/port: "8000"
+      #   prometheus.io/path: "/api/metrics"  # ← CORRIGÉ avec préfixe API
+      #   prometheus.io/scheme: "http"
     spec:
       containers:
       - name: backend
@@ -53,7 +57,7 @@ spec:
         # Probes pour vérifier la santé du container
         livenessProbe:
           httpGet:
-            path: /api/health
+            path: /api/health  # ← Garder /api/health puisque ça fonctionne
             port: 8000
           initialDelaySeconds: 30
           periodSeconds: 10
@@ -61,7 +65,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /api/health
+            path: /api/health  # ← Garder /api/health puisque ça fonctionne
             port: 8000
           initialDelaySeconds: 10
           periodSeconds: 5
@@ -74,16 +78,20 @@ spec:
           limits:
             memory: "512Mi"
             cpu: "500m"
+
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: backend-service
   namespace: agenda
+  labels:
+    app: backend
+    monitoring: "true"  # Important pour ServiceMonitor
 spec:
   selector:
     app: backend
   ports:
-  - name: backend-port
+  - name: backend-port  # IMPORTANT: ce nom est utilisé dans ServiceMonitor
     port: 8000
     targetPort: 8000

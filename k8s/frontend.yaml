@@ -10,10 +10,11 @@ spec:
       app: frontend
   template:
     metadata:
-      annotations:
-        prometheus.io/scrape: "true" # Indique à Prometheus de collecter les métriques
-        prometheus.io/port: "80" # Remplacez par le port d'exposition des métriques de l'application
-        prometheus.io/path: "/metrics"
+      # annotations:
+      #   prometheus.io/scrape: "true" # Indique à Prometheus de collecter les métriques
+      #   prometheus.io/port: "80" # Remplacez par le port d'exposition des métriques de l'application
+      #   prometheus.io/path: "/metrics"
+      #   prometheus.io/scheme: "http"
       labels:
         app: frontend
     spec:
