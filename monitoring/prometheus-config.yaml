@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-custom-config
+  namespace: monitoring
+data:
+  custom-targets.yaml: |
+    - targets: ['backend-service.agenda.svc.cluster.local:8000']
+      labels:
+        job: 'agenda-backend'
+      metrics_path: '/api/metrics'
+      scrape_interval: 30s

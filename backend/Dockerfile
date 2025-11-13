@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-install pdo pdo_mysql zip \
     && rm -rf /var/lib/apt/lists/*
 
+# Installer APCU pour Prometheus
+RUN pecl install apcu \
+    && docker-php-ext-enable apcu
+
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www
@@ -24,6 +28,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -g 1000 appuser \
     && useradd -u 1000 -g appuser -m appuser
+
+# Installer APCU pour Prometheus dans la stage production
+RUN pecl install apcu \
+    && docker-php-ext-enable apcu
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 

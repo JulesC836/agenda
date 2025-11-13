@@ -6,7 +6,7 @@ echo "🚀 Déploiement de l'application Agenda sur Kubernetes"
 
 # Démarrage de Minikube avec les addons nécessaires
 echo "🔧 Démarrage de Minikube..."
-# minikube start --addons=ingress --addons=metrics-server
+minikube start --addons=ingress --addons=metrics-server
 
 # Configuration de l'environnement Docker de Minikube
 echo "🐳 Configuration de l'environnement Docker..."
