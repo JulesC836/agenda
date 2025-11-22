@@ -236,3 +236,11 @@ cd frontend && ng serve
 # Database
 php artisan migrate
 ```
+
+Prometheus et Grafana devraient fonctionner correctement
+
+Tout le monde peut tester avec les commandes simples :
+bash
+
+kubectl apply -f k8s/
+kubectl apply -f monitoring/
