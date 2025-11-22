@@ -236,3 +236,5 @@ cd frontend && ng serve
 # Database
 php artisan migrate
 ```
+---
+*Démo live réussie le [date et heure]*
