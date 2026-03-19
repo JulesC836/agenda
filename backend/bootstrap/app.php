@@ -15,6 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'verified' => \App\Http\Middleware\EnsureEmailIsVerified::class,
         ]);
+        // API stateless - pas de cookies/sessions
+        $middleware->api(prepend: [
+            \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
+        ]);
+        $middleware->validateCsrfTokens(except: [
+            '/api/*',
+            '/health',
+            '/ready',
+            '/metrics',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

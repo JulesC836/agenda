@@ -51,8 +51,12 @@ RUN if [ ! -f .env ]; then \
 RUN mkdir -p storage/logs storage/framework/{cache,sessions,views} bootstrap/cache \
     && chown -R appuser:appuser storage bootstrap/cache .env
 
+# Copier le script d'entrypoint AVANT de changer d'utilisateur
+COPY --chown=appuser:appuser docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 USER appuser
 
 EXPOSE 8000
 
-CMD php artisan serve --host=0.0.0.0 --port=8000
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
