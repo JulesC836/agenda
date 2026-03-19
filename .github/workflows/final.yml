@@ -113,16 +113,3 @@ jobs:
         env:
           # Il est important d'utiliser la variable du secret Kubeconfig encodée en Base64
           KUBE_CONFIG_BASE64: ${{ secrets.KUBE_CONFIG_DATA }}**
-
-      - name: 13. Exécution du script de déploiement K8s
-        run: |
-          echo "Déploiement K8s démarré..."
-          chmod +x ./k8s/deploy.sh
-          ./k8s/deploy.sh
-        env:
-          BACKEND_SHA_TAG: ${{ steps.backend_meta.outputs.sha }}
-          FRONTEND_SHA_TAG: ${{ steps.frontend_meta.outputs.sha }}
-          REGISTRY_HOST: ${{ env.REGISTRY }}
-          REPO_NAME: ${{ github.repository }}
-
-  
