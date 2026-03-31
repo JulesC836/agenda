@@ -23,7 +23,9 @@ RUN pnpm run build --configuration=production
 FROM nginx:alpine
 
 # Supprimer la configuration par défaut de Nginx
-RUN rm -rf /usr/share/nginx/html/*
+RUN rm -rf /usr/share/nginx/html/* && \
+    rm -f /etc/nginx/conf.d/*.conf
+
 
 # ✅ CORRECTION : Vérifier que le fichier agenda.conf existe
 COPY agenda.conf /etc/nginx/conf.d/default.conf
