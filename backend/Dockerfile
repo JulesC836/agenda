@@ -1,5 +1,5 @@
 # Build stage
-FROM php:8.2-fpm AS builder
+FROM php:8.4-fpm AS builder
 
 RUN apt-get update && apt-get install -y \
     git unzip libpq-dev libzip-dev \
