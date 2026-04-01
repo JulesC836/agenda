@@ -20,7 +20,7 @@ RUN composer install --optimize-autoloader --no-scripts --no-dev
 COPY ./ ./
 
 # Production stage
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 RUN apt-get update && apt-get install -y \
     libpq-dev libzip-dev \
