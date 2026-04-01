@@ -1,5 +1,5 @@
 # Build stage
-FROM php:8.2-fpm AS builder
+FROM php:8.4-fpm AS builder
 
 RUN apt-get update && apt-get install -y \
     git unzip libpq-dev libzip-dev \
@@ -20,7 +20,7 @@ RUN composer install --optimize-autoloader --no-scripts --no-dev
 COPY ./ ./
 
 # Production stage
-FROM php:8.2-fpm
+FROM php:8.4-fpm
 
 RUN apt-get update && apt-get install -y \
     libpq-dev libzip-dev \
