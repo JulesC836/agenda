@@ -1,13 +1,13 @@
-version: '3.8'
+
 
 networks:
   agenda-network:
     driver: bridge
 
 services:
-  mariadb:
-    image: mariadb:latest
-    container_name: agenda-mariadb
+  database:
+    image: mysql:8.4
+    container_name: agenda-db
     environment:
       MYSQL_ROOT_PASSWORD: supersecure
       MYSQL_DATABASE: agenda
@@ -16,15 +16,14 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     networks:
       - agenda-network
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uuser", "-pmd_pass"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 60s
+      retries: 5
 
   backend:
     build: 
@@ -34,10 +33,10 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      mariadb:
+      database:
         condition: service_healthy
     environment:
-      DB_HOST: mariadb
+      DB_HOST: database
       DB_DATABASE: agenda
       DB_USERNAME: user
       DB_PASSWORD: md_pass
@@ -61,5 +60,5 @@ services:
       - agenda-network
 
 volumes:
-  mariadb_data:
+  mysql_data:
     driver: local
